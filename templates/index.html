@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Messenger App</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; }
+        #chat-box { width: 400px; height: 300px; background: white; border: 1px solid #ccc; padding: 10px; overflow-y: scroll; margin-bottom: 10px; border-radius: 5px; }
+        #message { width: 310px; padding: 8px; border: 1px solid #ccc; border-radius: 3px; }
+        #send-btn { padding: 8px 15px; background: #25D366; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        .msg-item { margin-bottom: 8px; padding: 6px; background: #e1ffc7; border-radius: 5px; width: fit-content; }
+    </style>
+</head>
+<body>
+
+    <h2>Local Messenger 💬</h2>
+    <div id="chat-box"></div>
+
+    <input type="text" id="message" placeholder="Type a message...">
+    <button id="send-btn">Send</button>
+
+    <script>
+        // 1. Server se connect karein
+        const socket = io();
+
+        const chatBox = document.getElementById('chat-box');
+        const messageInput = document.getElementById('message');
+        const sendBtn = document.getElementById('send-btn');
+
+        // 2. Server se naya message aane par use screen par dikhayein
+        socket.on('message', function(msg) {
+            const msgElement = document.createElement('div');
+            msgElement.classList.add('msg-item');
+            msgElement.innerText = msg;
+            chatBox.appendChild(msgElement);
+            chatBox.scrollTop = chatBox.scrollHeight; // Auto scroll down
+        });
+
+        // 3. Send button par click karne par message server ko bhejein
+        sendBtn.onclick = function() {
+            const msg = messageInput.value;
+            if (msg.trim() !== "") {
+                socket.send(msg);
+                messageInput.value = ""; // Input box khali karein
+            }
+        };
+
+        // Enter key se bhi message send ho sake uske liye
+        messageInput.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                sendBtn.click();
+            }
+        });
+    </script>
+</body>
+</html>
