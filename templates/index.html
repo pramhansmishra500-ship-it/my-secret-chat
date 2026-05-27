@@ -3,38 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Secret Chat 💬</title>
+    <title>Secret Chat Room 🔒</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e5ddd5; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        h2 { color: #075e54; margin-bottom: 10px; }
-        #chat-container { width: 100%; max-width: 450px; height: 80vh; background: #efeae2; display: flex; flex-direction: column; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); overflow: hidden; }
+
+        /* Login Screen Styling */
+        #login-container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: 100%; max-width: 350px; text-align: center; }
+        #login-container h3 { color: #075e54; margin-top: 0; }
+        .input-field { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; font-size: 15px; outline: none; }
+        .login-btn { width: 96%; padding: 10px; background: #075e54; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .login-btn:hover { background: #128c7e; }
+        #error-msg { color: red; font-size: 14px; margin-top: 5px; display: none; }
+
+        /* Chat Screen Styling (Hidden by Default) */
+        #chat-interface { width: 100%; max-width: 450px; height: 90vh; display: none; flex-direction: column; background: #efeae2; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); overflow: hidden; }
+        #room-header { background: #075e54; color: white; padding: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        #logout-btn { background: #128c7e; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+
         #chat-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 
-        /* Message Bubbles Styling */
+        /* Message Bubbles */
         .msg-wrapper { display: flex; width: 100%; }
-        .msg-wrapper.sent { justify-content: flex-end; } /* Sender -> Right */
-        .msg-wrapper.received { justify-content: flex-start; } /* Receiver -> Left */
+        .msg-wrapper.sent { justify-content: flex-end; }
+        .msg-wrapper.received { justify-content: flex-start; }
 
         .msg-item { max-width: 75%; padding: 8px 12px; border-radius: 8px; font-size: 15px; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); word-wrap: break-word; }
         .sent .msg-item { background: #d9fdd3; color: #111b21; border-top-right-radius: 0; }
         .received .msg-item { background: #ffffff; color: #111b21; border-top-left-radius: 0; }
 
         .username { font-size: 11px; font-weight: bold; color: #128c7e; margin-bottom: 3px; display: block; }
-        .sent .username { color: #0b8043; }
 
         /* Input Area */
         #input-area { display: flex; padding: 10px; background: #f0f0f0; border-top: 1px solid #ddd; }
         #message { flex: 1; padding: 10px; border: none; border-radius: 20px; outline: none; font-size: 15px; background: white; padding-left: 15px; }
-        #send-btn { margin-left: 8px; padding: 10px 20px; background: #00a884; color: white; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        #send-btn:hover { background: #008f72; }
+        #send-btn { margin-left: 8px; padding: 10px 20px; background: #00a884; color: white; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <h2>Secret Chat 💬</h2>
-    <div id="chat-container">
+    <div id="login-container">
+        <h3>Secret Chat Login 🔒</h3>
+        <input type="text" id="username-input" class="input-field" placeholder="Apna Naam Likhein" required>
+        <input type="password" id="password-input" class="input-field" placeholder="Room Password Dalein" required>
+        <button onclick="tryLogin()" class="login-btn">Join Room</button>
+        <div id="error-msg">Galat Password! Dobara try karein.</div>
+    </div>
+
+    <div id="chat-interface">
+        <div id="room-header">
+            <span id="welcome-text">Room: Private</span>
+            <button id="logout-btn" onclick="logout()">Exit</button>
+        </div>
         <div id="chat-box"></div>
         <div id="input-area">
             <input type="text" id="message" placeholder="Type a message...">
@@ -45,24 +66,61 @@
     <script>
         const socket = io();
 
-        // Abhi ke liye temporary ask for name jab tak proper login na bane
-        let myUsername = localStorage.getItem("chat_username");
-        if (!myUsername) {
-            myUsername = prompt("Apna Naam Likhein:") || "Anonymous";
-            localStorage.setItem("chat_username", myUsername);
+        // 🚨 APNA SECRET PASSWORD YAHAN SET KAREIN
+        const SECRET_ROOM_PASSWORD = "mysecretroom";
+
+        let currentUsername = sessionStorage.getItem("chat_user");
+
+        // Agar user pehle se logged in hai to direct chat dikhao
+        if (currentUsername) {
+            showChatInterface();
         }
 
+        function tryLogin() {
+            const nameInput = document.getElementById("username-input").value.trim();
+            const passInput = document.getElementById("password-input").value;
+            const errorDiv = document.getElementById("error-msg");
+
+            if (nameInput === "") {
+                alert("Please apna naam likhein!");
+                return;
+            }
+
+            // Password Checking
+            if (passInput === SECRET_ROOM_PASSWORD) {
+                currentUsername = nameInput;
+                sessionStorage.setItem("chat_user", nameInput);
+                errorDiv.style.display = "none";
+                showChatInterface();
+            } else {
+                errorDiv.style.display = "block";
+            }
+        }
+
+        function showChatInterface() {
+            document.getElementById("login-container").style.display = "none";
+            document.getElementById("chat-interface").style.display = "flex";
+            document.getElementById("welcome-text").innerText = `User: ${currentUsername}`;
+        }
+
+        function logout() {
+            sessionStorage.removeItem("chat_user");
+            window.location.reload();
+        }
+
+        // --- Chat Code ---
         const chatBox = document.getElementById('chat-box');
         const messageInput = document.getElementById('message');
         const sendBtn = document.getElementById('send-btn');
 
-        // Server se message aane par handle karein
         socket.on('message', function(data) {
+            // Agar user logged in nahi hai to messages mat dikhao
+            if (!currentUsername) return;
+
             const wrapper = document.createElement('div');
             wrapper.classList.add('msg-wrapper');
 
-            // Check karein ki message maine bheja hai ya kisi aur ne
-            if (data.sender === myUsername) {
+            if (data.sender === currentUsername) {
                 wrapper.classList.add('sent'); // Right Side
             } else {
                 wrapper.classList.add('received'); // Left Side
@@ -76,15 +134,13 @@
             `;
 
             chatBox.appendChild(wrapper);
-            chatBox.scrollTop = chatBox.scrollHeight; // Auto scroll to bottom
+            chatBox.scrollTop = chatBox.scrollHeight;
         });
 
-        // Message send karne par
         sendBtn.onclick = function() {
             const msgText = messageInput.value.trim();
-            if (msgText !== "") {
-                // Ab hum sirf text nahi, balki ek object bhej rahe hain jisme naam bhi hai
-                socket.send({ msg: msgText, sender: myUsername });
+            if (msgText !== "" && currentUsername) {
+                socket.send({ msg: msgText, sender: currentUsername });
                 messageInput.value = "";
             }
         };
