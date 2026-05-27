@@ -2,56 +2,95 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>My Messenger App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Secret Chat 💬</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; }
-        #chat-box { width: 400px; height: 300px; background: white; border: 1px solid #ccc; padding: 10px; overflow-y: scroll; margin-bottom: 10px; border-radius: 5px; }
-        #message { width: 310px; padding: 8px; border: 1px solid #ccc; border-radius: 3px; }
-        #send-btn { padding: 8px 15px; background: #25D366; color: white; border: none; border-radius: 3px; cursor: pointer; }
-        .msg-item { margin-bottom: 8px; padding: 6px; background: #e1ffc7; border-radius: 5px; width: fit-content; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e5ddd5; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        h2 { color: #075e54; margin-bottom: 10px; }
+        #chat-container { width: 100%; max-width: 450px; height: 80vh; background: #efeae2; display: flex; flex-direction: column; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); overflow: hidden; }
+        #chat-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+
+        /* Message Bubbles Styling */
+        .msg-wrapper { display: flex; width: 100%; }
+        .msg-wrapper.sent { justify-content: flex-end; } /* Sender -> Right */
+        .msg-wrapper.received { justify-content: flex-start; } /* Receiver -> Left */
+
+        .msg-item { max-width: 75%; padding: 8px 12px; border-radius: 8px; font-size: 15px; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); word-wrap: break-word; }
+        .sent .msg-item { background: #d9fdd3; color: #111b21; border-top-right-radius: 0; }
+        .received .msg-item { background: #ffffff; color: #111b21; border-top-left-radius: 0; }
+
+        .username { font-size: 11px; font-weight: bold; color: #128c7e; margin-bottom: 3px; display: block; }
+        .sent .username { color: #0b8043; }
+
+        /* Input Area */
+        #input-area { display: flex; padding: 10px; background: #f0f0f0; border-top: 1px solid #ddd; }
+        #message { flex: 1; padding: 10px; border: none; border-radius: 20px; outline: none; font-size: 15px; background: white; padding-left: 15px; }
+        #send-btn { margin-left: 8px; padding: 10px 20px; background: #00a884; color: white; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        #send-btn:hover { background: #008f72; }
     </style>
 </head>
 <body>
 
-    <h2>Local Messenger 💬</h2>
-    <div id="chat-box"></div>
-
-    <input type="text" id="message" placeholder="Type a message...">
-    <button id="send-btn">Send</button>
+    <h2>Secret Chat 💬</h2>
+    <div id="chat-container">
+        <div id="chat-box"></div>
+        <div id="input-area">
+            <input type="text" id="message" placeholder="Type a message...">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
 
     <script>
-        // 1. Server se connect karein
         const socket = io();
+
+        // Abhi ke liye temporary ask for name jab tak proper login na bane
+        let myUsername = localStorage.getItem("chat_username");
+        if (!myUsername) {
+            myUsername = prompt("Apna Naam Likhein:") || "Anonymous";
+            localStorage.setItem("chat_username", myUsername);
+        }
 
         const chatBox = document.getElementById('chat-box');
         const messageInput = document.getElementById('message');
         const sendBtn = document.getElementById('send-btn');
 
-        // 2. Server se naya message aane par use screen par dikhayein
-        socket.on('message', function(msg) {
-            const msgElement = document.createElement('div');
-            msgElement.classList.add('msg-item');
-            msgElement.innerText = msg;
-            chatBox.appendChild(msgElement);
-            chatBox.scrollTop = chatBox.scrollHeight; // Auto scroll down
+        // Server se message aane par handle karein
+        socket.on('message', function(data) {
+            const wrapper = document.createElement('div');
+            wrapper.classList.add('msg-wrapper');
+
+            // Check karein ki message maine bheja hai ya kisi aur ne
+            if (data.sender === myUsername) {
+                wrapper.classList.add('sent'); // Right Side
+            } else {
+                wrapper.classList.add('received'); // Left Side
+            }
+
+            wrapper.innerHTML = `
+                <div class="msg-item">
+                    <span class="username">${data.sender}</span>
+                    <div>${data.msg}</div>
+                </div>
+            `;
+
+            chatBox.appendChild(wrapper);
+            chatBox.scrollTop = chatBox.scrollHeight; // Auto scroll to bottom
         });
 
-        // 3. Send button par click karne par message server ko bhejein
+        // Message send karne par
         sendBtn.onclick = function() {
-            const msg = messageInput.value;
-            if (msg.trim() !== "") {
-                socket.send(msg);
-                messageInput.value = ""; // Input box khali karein
+            const msgText = messageInput.value.trim();
+            if (msgText !== "") {
+                // Ab hum sirf text nahi, balki ek object bhej rahe hain jisme naam bhi hai
+                socket.send({ msg: msgText, sender: myUsername });
+                messageInput.value = "";
             }
         };
 
-        // Enter key se bhi message send ho sake uske liye
         messageInput.addEventListener("keypress", function(event) {
-            if (event.key === "Enter") {
-                sendBtn.click();
-            }
+            if (event.key === "Enter") sendBtn.click();
         });
     </script>
 </body>

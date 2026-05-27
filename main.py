@@ -14,9 +14,11 @@ def index():
 # 3. Message Handle - Jab koi user message bhejega, to ye code chalega
 @socketio.on('message')
 def handle_message(msg):
-    print(f"Message received: {msg}")
-    # Ye received message ko baki sabhi connected users ko bhej (broadcast) dega
-    send(msg, broadcast=True)
+    @socketio.on('message')
+    def handle_message(data):
+        print(f"Message received: {data}")
+        # pura data (msg aur sender dono) sabko broadcast kar do
+        send(data, broadcast=True)
 
 # 4. Server ko run karein
 if __name__ == '__main__':
